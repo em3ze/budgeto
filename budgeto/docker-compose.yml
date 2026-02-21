@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  budgeto:
+    build: .
+    container_name: budgeto
+    ports:
+      - "3000:3000"
+    volumes:
+      - budgeto_data:/data
+    restart: unless-stopped
+
+volumes:
+  budgeto_data:
