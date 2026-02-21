@@ -9,34 +9,31 @@ const DATA_FILE = path.join('/data', 'budgeto.json');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- Helpers ---
 function loadData() {
   if (!fs.existsSync(DATA_FILE)) {
     const defaults = {
       users: ['Moi', 'Conjoint(e)'],
-      share: [50, 50],
+      defaultShare: [50, 50],
+      monthShares: {},
       expenses: [],
       fixed: [],
+      customCategories: [],
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(defaults, null, 2));
     return defaults;
   }
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  const d = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  if (!d.defaultShare)      { d.defaultShare = d.share || [50,50]; }
+  if (!d.monthShares)       { d.monthShares = {}; }
+  if (!d.customCategories)  { d.customCategories = []; }
+  return d;
 }
 
 function saveData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// --- Routes ---
-app.get('/api/data', (req, res) => {
-  res.json(loadData());
-});
-
-app.post('/api/data', (req, res) => {
-  saveData(req.body);
-  res.json({ ok: true });
-});
+app.get('/api/data', (req, res) => res.json(loadData()));
 
 app.post('/api/expense', (req, res) => {
   const data = loadData();
@@ -70,8 +67,32 @@ app.delete('/api/fixed/:id', (req, res) => {
 
 app.post('/api/settings', (req, res) => {
   const data = loadData();
-  if (req.body.users) data.users = req.body.users;
-  if (req.body.share) data.share = req.body.share;
+  if (req.body.users)        data.users = req.body.users;
+  if (req.body.defaultShare) data.defaultShare = req.body.defaultShare;
+  saveData(data);
+  res.json({ ok: true });
+});
+
+app.post('/api/month-share', (req, res) => {
+  const data = loadData();
+  const { month, share } = req.body;
+  if (share === null) delete data.monthShares[month];
+  else data.monthShares[month] = share;
+  saveData(data);
+  res.json({ ok: true });
+});
+
+app.post('/api/category', (req, res) => {
+  const data = loadData();
+  const cat = { ...req.body, id: 'custom_' + Date.now() };
+  data.customCategories.push(cat);
+  saveData(data);
+  res.json(cat);
+});
+
+app.delete('/api/category/:id', (req, res) => {
+  const data = loadData();
+  data.customCategories = data.customCategories.filter(c => c.id !== req.params.id);
   saveData(data);
   res.json({ ok: true });
 });
