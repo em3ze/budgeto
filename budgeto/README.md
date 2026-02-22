@@ -1,28 +1,39 @@
+
+----------
 # 💸 Budgeto
 
-Application de suivi de dépenses pour deux personnes.
-
-## Déploiement rapide (Docker)
-
-### Prérequis
-- Docker et Docker Compose installés sur ton serveur
-
-### Lancer l'app
-
-```bash
-# Clone / copie les fichiers sur ton serveur, puis:
-docker-compose up -d
-```
-
-L'app sera accessible sur **http://ton-serveur:3000**
+> Application de suivi de dépenses simple et efficace pour deux personnes.
 
 ---
 
-### Derrière un reverse proxy (Apache / Nginx recommandé)
+## 🚀 Déploiement
 
-Si tu veux un domaine propre genre `budget.monserveur.com`, ajoute un Virtual Host Apache:
+### Prérequis
+- **Docker** et **Docker Compose** installés sur ton serveur.
 
-```apache
+### Lancer l'application
+Clone ou copie les fichiers du projet sur ton serveur, puis exécute la commande suivante à la racine :
+
+```bash
+docker-compose up -d
+
+```
+
+L'application sera directement accessible sur `http://ton-serveur:3000`.
+
+----------
+
+## 🌐 Reverse Proxy (Recommandé)
+
+Si tu souhaites utiliser un nom de domaine propre (par exemple `budget.monserveur.com`), il est recommandé de placer l'application derrière un reverse proxy (Apache ou Nginx).
+
+### Exemple avec Apache
+
+Crée un nouveau _Virtual Host_ :
+
+Apache
+
+```
 <VirtualHost *:80>
     ServerName budget.monserveur.com
 
@@ -30,60 +41,85 @@ Si tu veux un domaine propre genre `budget.monserveur.com`, ajoute un Virtual Ho
     ProxyPass / http://localhost:3000/
     ProxyPassReverse / http://localhost:3000/
 </VirtualHost>
+
 ```
 
-Active les modules nécessaires:
-```bash
+Active ensuite les modules nécessaires et recharge le service :
+
+Bash
+
+```
 sudo a2enmod proxy proxy_http
 sudo systemctl reload apache2
+
 ```
 
----
+----------
 
-### Données persistantes
+## 💾 Données Persistantes
 
-Les données sont stockées dans un volume Docker (`budgeto_data`) sur ton serveur.  
-Pour faire une sauvegarde manuelle:
+Les données de l'application sont stockées de manière persistante dans un volume Docker (`budgeto_data`).
 
-```bash
+### Sauvegarde manuelle
+
+Pour extraire les données et faire une sauvegarde en local :
+
+Bash
+
+```
 docker cp budgeto:/data/budgeto.json ./backup-budgeto.json
+
 ```
 
-Pour restaurer:
-```bash
+### Restauration
+
+Pour injecter une sauvegarde dans le conteneur et l'appliquer :
+
+Bash
+
+```
 docker cp ./backup-budgeto.json budgeto:/data/budgeto.json
 docker restart budgeto
+
 ```
 
----
+----------
 
-### Commandes utiles
+## 🛠 Commandes Utiles
 
-```bash
-# Voir les logs
-docker logs budgeto
+**Action**
 
-# Redémarrer
-docker-compose restart
+**Commande**
 
-# Arrêter
-docker-compose down
+**Voir les logs**
 
-# Mettre à jour (après modif du code)
-docker-compose up -d --build
-```
+`docker logs budgeto`
 
----
+**Redémarrer l'app**
 
-### Structure des fichiers
+`docker-compose restart`
+
+**Arrêter l'app**
+
+`docker-compose down`
+
+**Mettre à jour** _(après modif du code)_
+
+`docker-compose up -d --build`
+
+----------
+
+## 📂 Structure du Projet
+
+Plaintext
 
 ```
 budgeto/
 ├── server.js          # Backend Express
-├── package.json
-├── Dockerfile
-├── docker-compose.yml
-├── README.md
+├── package.json       # Dépendances Node.js
+├── Dockerfile         # Configuration de l'image Docker
+├── docker-compose.yml # Orchestration des conteneurs
+├── README.md          # Documentation
 └── public/
     └── index.html     # Frontend complet
 ```
