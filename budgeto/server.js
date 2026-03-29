@@ -29,6 +29,7 @@ function loadData() {
   if (!d.defaultShare)     { d.defaultShare = d.share || [50, 50]; }
   if (!d.monthShares)      { d.monthShares = {}; }
   if (!d.customCategories) { d.customCategories = []; }
+  if (!d.paymentChecks)    { d.paymentChecks = {}; }
   return d;
 }
 
@@ -107,8 +108,9 @@ app.delete('/api/fixed/:id', (req, res) => {
 
 app.post('/api/settings', (req, res) => {
   const data = loadData();
-  if (req.body.users)        data.users = req.body.users;
-  if (req.body.defaultShare) data.defaultShare = req.body.defaultShare;
+  if (req.body.users)          data.users = req.body.users;
+  if (req.body.defaultShare)   data.defaultShare = req.body.defaultShare;
+  if (req.body.paymentChecks !== undefined) data.paymentChecks = req.body.paymentChecks;
   saveData(data);
   res.json({ ok: true });
 });
