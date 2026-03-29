@@ -87,7 +87,23 @@ main { padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; padding-bot
 .pay-name { font-size: 12px; color: var(--muted); }
 .pay-amt { font-size: 13px; font-weight: 600; }
 .pay-divider { height: 1px; background: var(--border); margin: 10px 0; }
-.pay-total { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; }
+.pay-check-row { align-items: center; }
+.pay-check-label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; }
+.pay-check {
+  width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+  border: 2px solid var(--border); background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s; position: relative;
+}
+.pay-check.checked { background: var(--green); border-color: var(--green); }
+.pay-check.checked::after { content:'✓'; color: #fff; font-size: 11px; font-weight: 700; }
+.pay-check-row.is-paid .pay-name { text-decoration: line-through; opacity: .45; }
+
+.pay-total .pay-check-row { width: 100%; }
+.pay-total .pay-check-label { font-weight: 700; font-size: 13px; }
+.pay-total .pay-amt { font-weight: 700; font-size: 13px; }
+
+
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
@@ -524,6 +540,7 @@ async function loadState() {
   if(!state.customCategories)state.customCategories=[];
   if(!state.monthShares)state.monthShares={};
   if(!state.defaultShare)state.defaultShare=state.share||[50,50];
+  if(!state.paymentChecks)state.paymentChecks={};
 }
 
 async function initLogin() { await loadState(); renderLogin(); }
@@ -617,16 +634,51 @@ function renderDashboard() {
     :recent.map(e=>txHTML(e,true)).join('');
 }
 
+function getPayChecks() {
+  if(!state.paymentChecks) state.paymentChecks={};
+  if(!state.paymentChecks[dashMonth]) state.paymentChecks[dashMonth]={};
+  return state.paymentChecks[dashMonth];
+}
+
+async function togglePayCheck(key) {
+  const checks=getPayChecks();
+  checks[key]=!checks[key];
+  if(!state.paymentChecks) state.paymentChecks={};
+  state.paymentChecks[dashMonth]=checks;
+  await api('POST','/api/settings',{paymentChecks:state.paymentChecks});
+  // re-render only the encart to avoid full dashboard flicker
+  const share=getMonthShare(dashMonth);
+  const monthExp=state.expenses.filter(e=>e.date.slice(0,7)===dashMonth);
+  const fixedTotal=state.fixed.reduce((s,f)=>s+f.amount,0);
+  const paid=[0,0];
+  monthExp.forEach(e=>{paid[e.payer]+=e.amount;});
+  renderPaymentEncart(share,fixedTotal,paid[0]+paid[1],paid);
+}
+
+function payCheckHTML(key, label, amount, color) {
+  const checked=getPayChecks()[key]||false;
+  return `<div class="pay-row pay-check-row ${checked?'is-paid':''}">
+    <label class="pay-check-label" onclick="togglePayCheck('${key}')">
+      <span class="pay-check ${checked?'checked':''}"></span>
+      <span class="pay-name">${label}</span>
+    </label>
+    <span class="pay-amt" style="color:${color};${checked?'text-decoration:line-through;opacity:.45':''}">${amount}</span>
+  </div>`;
+}
+
 function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
   const fr=document.getElementById('pay-fixed-rows'), ft=document.getElementById('pay-fixed-total');
   if(state.fixed.length===0){
     fr.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:6px;">Aucun frais fixe</div>';
     ft.innerHTML='<span style="color:var(--muted)">Total</span><span>—</span>';
   } else {
-    fr.innerHTML=state.users.map((u,i)=>`
-      <div class="pay-row"><span class="pay-name">${u}</span><span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(fixedTotal*share[i]/100)}</span></div>`).join('');
-    ft.innerHTML=`<span>Total</span><span>${fmt(fixedTotal)}</span>`;
+    fr.innerHTML=state.users.map((u,i)=>
+      payCheckHTML(`fixed_${i}`, u, fmt(fixedTotal*share[i]/100), UCOLORS[i])
+    ).join('');
+    const allFixedPaid=state.users.every((_,i)=>getPayChecks()[`fixed_${i}`]);
+    ft.innerHTML=`<span style="${allFixedPaid?'text-decoration:line-through;opacity:.5':''}">Total</span><span style="${allFixedPaid?'text-decoration:line-through;opacity:.5':''}">${fmt(fixedTotal)}</span>`;
   }
+
   const vr=document.getElementById('pay-var-rows'), vt=document.getElementById('pay-var-total');
   if(varTotal===0){
     vr.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:6px;">Aucune dépense variable</div>';
@@ -638,11 +690,15 @@ function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
       <div class="pay-row"><span class="pay-name">${u} a payé</span><span class="pay-amt">${fmt(paid[i])}</span></div>
       <div class="pay-row"><span class="pay-name">Part attendue</span><span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(due[i])}</span></div>
       ${i===0?'<div class="pay-divider"></div>':''}`).join('');
-    let solde;
-    if(absVar<0.5) solde=`<span>Solde</span><span style="color:var(--green)">Égal 🎉</span>`;
-    else if(varDiff>0) solde=`<span style="font-size:11px">${state.users[1]} → ${state.users[0]}</span><span style="color:var(--accent2)">${fmt(absVar)}</span>`;
-    else solde=`<span style="font-size:11px">${state.users[0]} → ${state.users[1]}</span><span style="color:var(--red)">${fmt(absVar)}</span>`;
-    vt.innerHTML=solde;
+
+    let soldeKey,soldeLabel,soldeAmt,soldeColor;
+    if(absVar<0.5){
+      vt.innerHTML=`<span>Solde</span><span style="color:var(--green)">Égal 🎉</span>`;
+    } else {
+      if(varDiff>0){ soldeKey='var_settle'; soldeLabel=`${state.users[1]} → ${state.users[0]}`; soldeColor='var(--accent2)'; }
+      else         { soldeKey='var_settle'; soldeLabel=`${state.users[0]} → ${state.users[1]}`; soldeColor='var(--red)'; }
+      vt.innerHTML=payCheckHTML(soldeKey, soldeLabel, fmt(absVar), soldeColor);
+    }
   }
 }
 
