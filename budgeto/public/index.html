@@ -614,7 +614,7 @@ function renderDashboard() {
   document.getElementById('recent-title').textContent=isCurMonth(dashMonth)?'Dépenses du mois':'Dépenses';
   document.getElementById('recent-list').innerHTML=recent.length===0
     ?'<div class="empty"><div class="empty-icon">🧾</div><div>Aucune dépense ce mois</div></div>'
-    :recent.map(e=>txHTML(e,false)).join('');
+    :recent.map(e=>txHTML(e,true)).join('');
 }
 
 function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
