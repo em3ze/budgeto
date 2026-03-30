@@ -413,7 +413,7 @@ input[type=range] { width: 100px; padding: 0; background: none; border: none; ac
       </div>
       <div class="payment-encart">
         <div class="payment-header">
-          <div class="payment-title">📅 Échéancier de paiement</div>
+          <div class="payment-title">💸 Dépenses du mois</div>
           <div class="share-badge" onclick="openShareModal()">
             <span id="share-badge-txt">50/50</span>
             <span style="font-size:10px;color:var(--muted)">✎</span>
@@ -421,13 +421,13 @@ input[type=range] { width: 100px; padding: 0; background: none; border: none; ac
         </div>
         <div class="payment-grid">
           <div class="payment-col">
-            <div class="payment-phase" style="color:var(--accent)">🗓 Début du mois</div>
+            <div class="payment-phase" style="color:var(--accent)">📌 Frais fixes</div>
             <div id="pay-fixed-rows"></div>
             <div class="pay-divider"></div>
             <div class="pay-total" id="pay-fixed-total"></div>
           </div>
           <div class="payment-col">
-            <div class="payment-phase" style="color:var(--accent2)">📬 Fin du mois</div>
+            <div class="payment-phase" style="color:var(--accent2)">🔄 Frais variables</div>
             <div id="pay-var-rows"></div>
             <div class="pay-divider"></div>
             <div class="pay-total" id="pay-var-total"></div>
@@ -719,7 +719,7 @@ function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
     // Qui a "payé" les fixes : chaque user paie sa part
     fr.innerHTML = state.users.map((u,i) => `
       <div class="pay-row">
-        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>${u}</span>
+        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Payés par ${u}</span>
         <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(fixedTotal * share[i] / 100)}</span>
       </div>`).join('') + `<div class="pay-divider"></div>`;
 
@@ -752,7 +752,7 @@ function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
     // Ce que chacun a réellement payé
     vr.innerHTML = state.users.map((u,i) => `
       <div class="pay-row">
-        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>${u}</span>
+        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Payés par ${u}</span>
         <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(paid[i])}</span>
       </div>`).join('') + `<div class="pay-divider"></div>`;
 
