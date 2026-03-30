@@ -399,6 +399,18 @@ input[type=range] { width: 100px; padding: 0; background: none; border: none; ac
         <div class="bal-amount" id="bal-amount">0 $</div>
         <div class="bal-who" id="bal-who"></div>
       </div>
+      <div class="grid-2">
+        <div class="stat-card">
+          <div class="stat-label">Dépenses variables</div>
+          <div class="stat-value" id="stat-total">0 $</div>
+          <div class="stat-sub" id="stat-period-lbl"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Frais fixes</div>
+          <div class="stat-value" id="stat-fixed">0 $</div>
+          <div class="stat-sub">ce mois</div>
+        </div>
+      </div>
       <div class="payment-encart">
         <div class="payment-header">
           <div class="payment-title">📅 Échéancier de paiement</div>
@@ -420,18 +432,6 @@ input[type=range] { width: 100px; padding: 0; background: none; border: none; ac
             <div class="pay-divider"></div>
             <div class="pay-total" id="pay-var-total"></div>
           </div>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="stat-card">
-          <div class="stat-label">Dépenses variables</div>
-          <div class="stat-value" id="stat-total">0 $</div>
-          <div class="stat-sub" id="stat-period-lbl"></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Frais fixes</div>
-          <div class="stat-value" id="stat-fixed">0 $</div>
-          <div class="stat-sub">ce mois</div>
         </div>
       </div>
       <div class="card">
@@ -616,12 +616,12 @@ function renderDashboard() {
   document.getElementById('dash-period').textContent=fmtMonth(dashMonth)+(isCurMonth(dashMonth)?' · En cours':'');
   document.getElementById('share-badge-txt').textContent=share[0]+'/'+share[1];
 
-  const balEl=document.getElementById('bal-amount'), whoEl=document.getElementById('bal-who');
+  const balEl=document.getElementById('bal-amount');
   balEl.textContent=fmt(abs);
-  if(abs<0.5){balEl.style.color='var(--green)';whoEl.innerHTML='Tout est égal 🎉';}
-  else if(diff>0){balEl.style.color='var(--accent2)';whoEl.innerHTML=`<strong>${state.users[1]}</strong> doit <strong>${fmt(abs)}</strong> à <strong>${state.users[0]}</strong>`;}
-  else{balEl.style.color='var(--red)';whoEl.innerHTML=`<strong>${state.users[0]}</strong> doit <strong>${fmt(abs)}</strong> à <strong>${state.users[1]}</strong>`;}
-
+  if(abs<0.5) balEl.style.color='var(--green)';
+  else if(diff>0) balEl.style.color='var(--accent2)';
+  else balEl.style.color='var(--red)';
+  updateBalWho();
   renderPaymentEncart(share,fixedTotal,varTotal,paid);
   document.getElementById('stat-total').textContent=fmt(varTotal);
   document.getElementById('stat-period-lbl').textContent=fmtMonth(dashMonth);
@@ -656,19 +656,44 @@ function getPayChecks() {
   return state.paymentChecks[dashMonth];
 }
 
+function updateBalWho() {
+  const whoEl = document.getElementById('bal-who');
+  if(!whoEl) return;
+  const settled = getPayChecks()['var_settle'] || false;
+  if(settled) {
+    whoEl.innerHTML = '<span style="color:var(--green)">Réglé ✓</span>';
+  } else {
+    // re-compute and show
+    const share=getMonthShare(dashMonth);
+    const monthExp=state.expenses.filter(e=>e.date.slice(0,7)===dashMonth);
+    const fixedTotal=state.fixed.reduce((s,f)=>s+f.amount,0);
+    const paid=[0,0];
+    monthExp.forEach(e=>{paid[e.payer]+=e.amount;});
+    const varTotal=paid[0]+paid[1];
+    const grandTotal=varTotal+fixedTotal;
+    const due=[grandTotal*share[0]/100,grandTotal*share[1]/100];
+    const effPaid=[paid[0]+fixedTotal*share[0]/100, paid[1]+fixedTotal*share[1]/100];
+    const diff=effPaid[0]-due[0], abs=Math.abs(diff);
+    if(abs<0.5) whoEl.innerHTML='Tout est égal 🎉';
+    else if(diff>0) whoEl.innerHTML=`<strong>${state.users[1]}</strong> doit <strong>${fmt(abs)}</strong> à <strong>${state.users[0]}</strong>`;
+    else whoEl.innerHTML=`<strong>${state.users[0]}</strong> doit <strong>${fmt(abs)}</strong> à <strong>${state.users[1]}</strong>`;
+  }
+}
+
 async function togglePayCheck(key) {
   const checks=getPayChecks();
   checks[key]=!checks[key];
   if(!state.paymentChecks) state.paymentChecks={};
   state.paymentChecks[dashMonth]=checks;
   await api('POST','/api/settings',{paymentChecks:state.paymentChecks});
-  // re-render only the encart to avoid full dashboard flicker
   const share=getMonthShare(dashMonth);
   const monthExp=state.expenses.filter(e=>e.date.slice(0,7)===dashMonth);
   const fixedTotal=state.fixed.reduce((s,f)=>s+f.amount,0);
   const paid=[0,0];
   monthExp.forEach(e=>{paid[e.payer]+=e.amount;});
   renderPaymentEncart(share,fixedTotal,paid[0]+paid[1],paid);
+  // hide/show "qui doit quoi" in balance hero when fin-du-mois is settled
+  if(key==='var_settle') updateBalWho();
 }
 
 function payCheckHTML(key, label, amount, color) {
