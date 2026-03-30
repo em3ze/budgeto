@@ -624,20 +624,6 @@ function renderDashboard() {
   document.getElementById('stat-period-lbl').textContent=fmtMonth(dashMonth);
   document.getElementById('stat-fixed').textContent=fmt(fixedTotal);
 
-  document.getElementById('per-person').innerHTML=state.users.map((u,i)=>{
-    const d=effPaid[i]-due[i];
-    return `<div class="person-row">
-      <div class="p-left">
-        <div class="p-av" style="background:${UCOLORS[i]}25;color:${UCOLORS[i]}">${u[0].toUpperCase()}</div>
-        <div><div class="p-name">${u}</div><div class="p-share-label">Part ${share[i]}% · Devrait: ${fmt(due[i])}</div></div>
-      </div>
-      <div class="p-right">
-        <div class="p-amount">${fmt(effPaid[i])}</div>
-        <div class="p-diff" style="color:${d>=0?'var(--green)':'var(--red)'}">${d>=0?'+':''}${fmt(d)}</div>
-      </div>
-    </div>`;
-  }).join('');
-
   renderCatChart(monthExp,fixedTotal);
 
   const recent=[...monthExp].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
