@@ -97,10 +97,11 @@ main { padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; padding-bot
 }
 .pay-check.checked { background: var(--green); border-color: var(--green); }
 .pay-check.checked::after { content:'✓'; color: #fff; font-size: 11px; font-weight: 700; }
-.pay-check-row.is-paid .pay-name { text-decoration: line-through; opacity: .45; }
+.pay-check-row.is-paid .pay-name { opacity: .45; }
 
-.pay-total .pay-check-row { width: 100%; }
-.pay-total .pay-check-label { font-weight: 700; font-size: 13px; }
+.pay-total { display: block; }
+.pay-total .pay-check-row { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+.pay-total .pay-name { font-weight: 700; font-size: 12px; color: var(--text); }
 .pay-total .pay-amt { font-weight: 700; font-size: 13px; }
 
 
@@ -671,48 +672,77 @@ async function togglePayCheck(key) {
 }
 
 function payCheckHTML(key, label, amount, color) {
-  const checked=getPayChecks()[key]||false;
-  return `<div class="pay-row pay-check-row ${checked?'is-paid':''}">
-    <label class="pay-check-label" onclick="togglePayCheck('${key}')">
+  const checked = getPayChecks()[key] || false;
+  const strike = checked ? 'text-decoration:line-through;opacity:.4;' : '';
+  return `<div class="pay-row pay-check-row ${checked?'is-paid':''}" onclick="togglePayCheck('${key}')" style="cursor:pointer;">
+    <div class="pay-check-label">
       <span class="pay-check ${checked?'checked':''}"></span>
-      <span class="pay-name">${label}</span>
-    </label>
-    <span class="pay-amt" style="color:${color};${checked?'text-decoration:line-through;opacity:.45':''}">${amount}</span>
+      <span class="pay-name" style="${strike}">${label}</span>
+    </div>
+    <span class="pay-amt" style="color:${color};${strike}">${amount}</span>
   </div>`;
 }
 
 function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
   const fr=document.getElementById('pay-fixed-rows'), ft=document.getElementById('pay-fixed-total');
+
+  // ── GAUCHE : Frais fixes ──
   if(state.fixed.length===0){
     fr.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:6px;">Aucun frais fixe</div>';
-    ft.innerHTML='<span style="color:var(--muted)">Total</span><span>—</span>';
+    ft.innerHTML='<span style="color:var(--muted)">—</span>';
   } else {
-    fr.innerHTML=state.users.map((u,i)=>
-      payCheckHTML(`fixed_${i}`, u, fmt(fixedTotal*share[i]/100), UCOLORS[i])
-    ).join('');
-    const allFixedPaid=state.users.every((_,i)=>getPayChecks()[`fixed_${i}`]);
-    ft.innerHTML=`<span style="${allFixedPaid?'text-decoration:line-through;opacity:.5':''}">Total</span><span style="${allFixedPaid?'text-decoration:line-through;opacity:.5':''}">${fmt(fixedTotal)}</span>`;
+    // Qui a "payé" les fixes : chaque user paie sa part
+    fr.innerHTML = state.users.map((u,i) => `
+      <div class="pay-row">
+        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>${u}</span>
+        <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(fixedTotal * share[i] / 100)}</span>
+      </div>`).join('') + `<div class="pay-divider"></div>`;
+
+    // Solde fixes : qui doit quoi à l'autre
+    const fixDiff = fixedTotal*share[0]/100 - fixedTotal*share[1]/100;
+    // fixedTotal est partagé selon %, les frais fixes sont payés par les deux selon la vraie proportion
+    // On calcule combien chacun aurait dû payer VS ce qu'on leur demande
+    // Ici c'est simplement : user0 doit share[0]% et user1 doit share[1]%
+    // Le "règlement" en début de mois = si on considère que les fixes sont avancés par un seul, l'autre rembourse
+    // Logique simple : comparer ce que chacun aurait à payer
+    const fixDue0 = fixedTotal * share[0] / 100;
+    const fixDue1 = fixedTotal * share[1] / 100;
+    // Qui doit à qui : si user0 avance tout → user1 lui doit fixDue1
+    // On affiche juste le montant net que user1 doit à user0 (ou l'inverse)
+    if(Math.abs(fixDue0 - fixDue1) < 0.5){
+      ft.innerHTML = payCheckHTML('fix_settle','Solde égal 🎉','—','var(--green)');
+    } else if(fixDue0 > fixDue1){
+      ft.innerHTML = payCheckHTML('fix_settle', `${state.users[1]} → ${state.users[0]}`, fmt(fixDue1), 'var(--accent2)');
+    } else {
+      ft.innerHTML = payCheckHTML('fix_settle', `${state.users[0]} → ${state.users[1]}`, fmt(fixDue0), 'var(--accent)');
+    }
   }
 
+  // ── DROITE : Frais variables ──
   const vr=document.getElementById('pay-var-rows'), vt=document.getElementById('pay-var-total');
   if(varTotal===0){
     vr.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:6px;">Aucune dépense variable</div>';
-    vt.innerHTML='<span style="color:var(--muted)">Solde</span><span>—</span>';
+    vt.innerHTML='<span style="color:var(--muted)">—</span>';
   } else {
-    const due=[varTotal*share[0]/100, varTotal*share[1]/100];
-    const varDiff=paid[0]-due[0], absVar=Math.abs(varDiff);
-    vr.innerHTML=state.users.map((u,i)=>`
-      <div class="pay-row"><span class="pay-name">${u} a payé</span><span class="pay-amt">${fmt(paid[i])}</span></div>
-      <div class="pay-row"><span class="pay-name">Part attendue</span><span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(due[i])}</span></div>
-      ${i===0?'<div class="pay-divider"></div>':''}`).join('');
+    // Ce que chacun a réellement payé
+    vr.innerHTML = state.users.map((u,i) => `
+      <div class="pay-row">
+        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>${u}</span>
+        <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(paid[i])}</span>
+      </div>`).join('') + `<div class="pay-divider"></div>`;
 
-    let soldeKey,soldeLabel,soldeAmt,soldeColor;
-    if(absVar<0.5){
-      vt.innerHTML=`<span>Solde</span><span style="color:var(--green)">Égal 🎉</span>`;
+    // Solde variables
+    const due0 = varTotal * share[0] / 100;
+    const due1 = varTotal * share[1] / 100;
+    const varDiff = paid[0] - due0; // >0 = user0 a trop payé → user1 lui doit
+    const absVar = Math.abs(varDiff);
+
+    if(absVar < 0.5){
+      vt.innerHTML = payCheckHTML('var_settle','Solde égal 🎉','—','var(--green)');
+    } else if(varDiff > 0){
+      vt.innerHTML = payCheckHTML('var_settle', `${state.users[1]} → ${state.users[0]}`, fmt(absVar), 'var(--accent2)');
     } else {
-      if(varDiff>0){ soldeKey='var_settle'; soldeLabel=`${state.users[1]} → ${state.users[0]}`; soldeColor='var(--accent2)'; }
-      else         { soldeKey='var_settle'; soldeLabel=`${state.users[0]} → ${state.users[1]}`; soldeColor='var(--red)'; }
-      vt.innerHTML=payCheckHTML(soldeKey, soldeLabel, fmt(absVar), soldeColor);
+      vt.innerHTML = payCheckHTML('var_settle', `${state.users[0]} → ${state.users[1]}`, fmt(absVar), 'var(--accent)');
     }
   }
 }
