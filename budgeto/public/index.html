@@ -702,7 +702,7 @@ function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
     // Qui a "payé" les fixes : chaque user paie sa part
     fr.innerHTML = state.users.map((u,i) => `
       <div class="pay-row">
-        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Payés par ${u}</span>
+        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Part de ${u}</span>
         <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(fixedTotal * share[i] / 100)}</span>
       </div>`).join('') + `<div class="pay-divider"></div>`;
 
@@ -1050,15 +1050,33 @@ function renderFixedSettings(){
   if(state.fixed.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0;">Aucun frais fixe encore.</div>';return;}
   el.innerHTML=state.fixed.map(f=>{
     const cat=getCat(f.cat);
-    return `<div class="fixed-item">
-      <div style="display:flex;align-items:center;gap:10px"><span>${cat.emoji}</span>
-        <div><div style="font-size:14px;font-weight:500">${f.desc}</div><div style="font-size:11px;color:var(--muted)">${cat.label}</div></div>
+    const payer = f.payer !== undefined ? f.payer : '';
+    return `<div class="fixed-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px"><span>${cat.emoji}</span>
+          <div><div style="font-size:14px;font-weight:500">${f.desc}</div><div style="font-size:11px;color:var(--muted)">${cat.label}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px"><span style="font-weight:600">${fmt(f.amount)}</span>
+          <button class="fixed-del" onclick="deleteFixed('${f.id}')">🗑</button>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px"><span style="font-weight:600">${fmt(f.amount)}</span>
-        <button class="fixed-del" onclick="deleteFixed('${f.id}')">🗑</button>
+      <div style="display:flex;align-items:center;gap:8px;padding-left:2px;">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Payé par</span>
+        <select style="flex:1;padding:6px 10px;font-size:13px;" onchange="saveFixedPayer('${f.id}', this.value)">
+          <option value="" ${payer===''?'selected':''}>— Non assigné</option>
+          ${state.users.map((u,i)=>`<option value="${i}" ${payer===i?'selected':''}>${u}</option>`).join('')}
+        </select>
       </div>
     </div>`;
   }).join('');
+}
+
+async function saveFixedPayer(id, val){
+  const idx=state.fixed.findIndex(f=>f.id===id);
+  if(idx===-1)return;
+  state.fixed[idx].payer = val==='' ? undefined : parseInt(val);
+  await api('PUT',`/api/fixed/${id}/payer`,{payer: state.fixed[idx].payer});
+  renderDashboard();
 }
 
 // ── CUSTOM CATEGORIES ──
