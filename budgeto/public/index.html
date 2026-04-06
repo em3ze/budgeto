@@ -699,30 +699,44 @@ function renderPaymentEncart(share,fixedTotal,varTotal,paid) {
     fr.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:6px;">Aucun frais fixe</div>';
     ft.innerHTML='<span style="color:var(--muted)">—</span>';
   } else {
-    // Qui a "payé" les fixes : chaque user paie sa part
-    fr.innerHTML = state.users.map((u,i) => `
-      <div class="pay-row">
-        <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Part de ${u}</span>
-        <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(fixedTotal * share[i] / 100)}</span>
-      </div>`).join('') + `<div class="pay-divider"></div>`;
+    // Part due selon le % de partage
+    const fixDue = [fixedTotal*share[0]/100, fixedTotal*share[1]/100];
 
-    // Solde fixes : qui doit quoi à l'autre
-    const fixDiff = fixedTotal*share[0]/100 - fixedTotal*share[1]/100;
-    // fixedTotal est partagé selon %, les frais fixes sont payés par les deux selon la vraie proportion
-    // On calcule combien chacun aurait dû payer VS ce qu'on leur demande
-    // Ici c'est simplement : user0 doit share[0]% et user1 doit share[1]%
-    // Le "règlement" en début de mois = si on considère que les fixes sont avancés par un seul, l'autre rembourse
-    // Logique simple : comparer ce que chacun aurait à payer
-    const fixDue0 = fixedTotal * share[0] / 100;
-    const fixDue1 = fixedTotal * share[1] / 100;
-    // Qui doit à qui : si user0 avance tout → user1 lui doit fixDue1
-    // On affiche juste le montant net que user1 doit à user0 (ou l'inverse)
-    if(Math.abs(fixDue0 - fixDue1) < 0.5){
+    // Montant réellement payé par chaque user (selon l'assignation dans les réglages)
+    const fixPaid = [0, 0];
+    state.fixed.forEach(f => {
+      if(f.payer === 0) fixPaid[0] += f.amount;
+      else if(f.payer === 1) fixPaid[1] += f.amount;
+      // non assigné → pas comptabilisé dans le payé réel
+    });
+
+    fr.innerHTML =
+      // Parts dues
+      state.users.map((u,i) => `
+        <div class="pay-row">
+          <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Part de ${u}</span>
+          <span class="pay-amt" style="color:${UCOLORS[i]}">${fmt(fixDue[i])}</span>
+        </div>`).join('')
+      + `<div class="pay-divider"></div>`
+      // Réellement payé
+      + state.users.map((u,i) => `
+        <div class="pay-row">
+          <span class="pay-name"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${UCOLORS[i]};margin-right:6px;vertical-align:middle"></span>Payés par ${u}</span>
+          <span class="pay-amt">${fmt(fixPaid[i])}</span>
+        </div>`).join('')
+      + `<div class="pay-divider"></div>`;
+
+    // Solde : diff entre ce que chaque user a payé et sa part due
+    // fixDiff > 0 → user0 a trop payé → user1 lui doit
+    const fixDiff = fixPaid[0] - fixDue[0];
+    const absFixDiff = Math.abs(fixDiff);
+
+    if(absFixDiff < 0.5){
       ft.innerHTML = payCheckHTML('fix_settle','Solde égal 🎉','—','var(--green)');
-    } else if(fixDue0 > fixDue1){
-      ft.innerHTML = payCheckHTML('fix_settle', `${state.users[1]} → ${state.users[0]}`, fmt(fixDue1), 'var(--accent2)');
+    } else if(fixDiff > 0){
+      ft.innerHTML = payCheckHTML('fix_settle', `${state.users[1]} → ${state.users[0]}`, fmt(absFixDiff), 'var(--accent2)');
     } else {
-      ft.innerHTML = payCheckHTML('fix_settle', `${state.users[0]} → ${state.users[1]}`, fmt(fixDue0), 'var(--accent)');
+      ft.innerHTML = payCheckHTML('fix_settle', `${state.users[0]} → ${state.users[1]}`, fmt(absFixDiff), 'var(--accent)');
     }
   }
 
