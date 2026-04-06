@@ -106,6 +106,15 @@ app.delete('/api/fixed/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.put('/api/fixed/:id/payer', (req, res) => {
+  const data = loadData();
+  const idx = data.fixed.findIndex(f => f.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  data.fixed[idx].payer = req.body.payer;
+  saveData(data);
+  res.json(data.fixed[idx]);
+});
+
 app.post('/api/settings', (req, res) => {
   const data = loadData();
   if (req.body.users)          data.users = req.body.users;
