@@ -626,7 +626,7 @@ function renderDashboard() {
 
   renderCatChart(monthExp,fixedTotal);
 
-  const recent=[...monthExp].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
+  const recent=[...monthExp].sort((a,b)=>new Date(b.date)-new Date(a.date));
   document.getElementById('recent-title').textContent=isCurMonth(dashMonth)?'Dépenses du mois':'Dépenses';
   document.getElementById('recent-list').innerHTML=recent.length===0
     ?'<div class="empty"><div class="empty-icon">🧾</div><div>Aucune dépense ce mois</div></div>'
